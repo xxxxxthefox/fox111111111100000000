@@ -1,4 +1,5 @@
 from flask import Flask, jsonify
+from flask_cors import CORS
 import hashlib
 import requests
 import random
@@ -6,6 +7,7 @@ from urllib.parse import quote
 import os
 
 app = Flask(__name__)
+CORS(app)  # ✅ السماح لأي دومين بالوصول
 
 TARGET_URL = "https://api.yollacalls.com/register"
 
@@ -94,7 +96,6 @@ def send_yolla(phone):
     }
 
     payload['sign'] = generate_signature(payload)
-
     headers = HEADERS_TEMPLATE.copy()
     headers['Device-id'] = payload['device[device_id]']
 
