@@ -5,10 +5,46 @@ import requests
 import random
 from urllib.parse import quote
 import os
+import time
 
 app = Flask(__name__)
-CORS(app)  # ✅ السماح لأي دومين بالوصول
+CORS(app)
 
+# ---------------- PROXY CONFIG -----------------
+PROXIES_LIST = [
+    "ndpjmktu:1c10epyq976i@142.111.48.253:7030",
+    "ndpjmktu:1c10epyq976i@31.59.20.176:6754",
+    "ndpjmktu:1c10epyq976i@23.95.150.145:6114",
+    "ndpjmktu:1c10epyq976i@198.23.239.134:6540",
+    "ndpjmktu:1c10epyq976i@107.172.163.27:6543",
+    "ndpjmktu:1c10epyq976i@198.105.121.200:6462",
+    "ndpjmktu:1c10epyq976i@64.137.96.74:6641",
+    "ndpjmktu:1c10epyq976i@84.247.60.125:6095",
+    "ndpjmktu:1c10epyq976i@216.10.27.159:6837",
+    "ndpjmktu:1c10epyq976i@142.111.67.146:5611",
+]
+
+TEST_URL = "https://httpbin.org/ip"
+
+def check_proxy(proxy):
+    proxies = {"http": f"http://{proxy}", "https": f"http://{proxy}"}
+    try:
+        r = requests.get(TEST_URL, proxies=proxies, timeout=10)
+        if r.status_code == 200:
+            return True, r.json()['origin']
+    except:
+        pass
+    return False, None
+
+def get_working_proxies():
+    working = []
+    for proxy in PROXIES_LIST:
+        status, ip = check_proxy(proxy)
+        if status:
+            working.append(proxy)
+    return working
+
+# ---------------- YOLLA CONFIG -----------------
 TARGET_URL = "https://api.yollacalls.com/register"
 
 ORDER = [
@@ -71,6 +107,11 @@ def random_hex(n):
     return ''.join(random.choices('0123456789abcdef', k=n))
 
 def send_yolla(phone):
+    # فحص البروكسيات قبل كل استخدام
+    working_proxies = get_working_proxies()
+    if not working_proxies:
+        return {"error": "لا توجد بروكسيات شغالة"}
+
     country = detect_country(phone)
 
     payload = {
@@ -99,12 +140,17 @@ def send_yolla(phone):
     headers = HEADERS_TEMPLATE.copy()
     headers['Device-id'] = payload['device[device_id]']
 
+    # اختيار بروكسي عشوائي من البروكسيات الشغالة
+    proxy = random.choice(working_proxies)
+    proxies = {"http": f"http://{proxy}", "https": f"http://{proxy}"}
+
     try:
-        r = requests.post(TARGET_URL, data=payload, headers=headers, timeout=15)
+        r = requests.post(TARGET_URL, data=payload, headers=headers, timeout=15, proxies=proxies)
         return r.json()
     except Exception as e:
         return {"error": str(e)}
 
+# ---------------- API ROUTE -----------------
 @app.route("/<country_code>/<phone_number>", methods=["GET"])
 def api(country_code, phone_number):
     phone = f"+{country_code}{phone_number}"
